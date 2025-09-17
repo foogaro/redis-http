@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  redis-http:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GITHUB_REPO: foogaro/redis-http  # Update this with your actual repo
+        RELEASE_TAG: latest
+    container_name: redis-http-module
+    restart: unless-stopped
+    ports:
+      - "6379:6379"   # Redis port
+      - "4887:4887"   # HTTP module port
+    volumes:
+      - redis_data:/var/lib/redis
+      - redis_logs:/var/log/redis
+    environment:
+      - REDIS_PASSWORD=  # Set to empty for no password, or set a password
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - redis-network
+
+  # Optional: Redis CLI client for testing
+  redis-cli:
+    image: redis:8.2.1-alpine
+    container_name: redis-cli-client
+    depends_on:
+      - redis-http
+    networks:
+      - redis-network
+    command: redis-cli -h redis-http
+    profiles:
+      - tools
+
+volumes:
+  redis_data:
+    driver: local
+  redis_logs:
+    driver: local
+
+networks:
+  redis-network:
+    driver: bridge

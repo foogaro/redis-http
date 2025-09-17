@@ -1,24 +1,16 @@
-# Rust build artifacts
-target/debug/
-target/release/
-
 # Git
-.git/
+.git
 .gitignore
+.gitattributes
 
 # Documentation
 *.md
 docs/
+.github/
 
-# Test files
-tests/
-test_*.sh
-quick_test.sh
-
-# Docker files
-Dockerfile
-docker-compose.yml
-.dockerignore
+# Rust build artifacts
+target/
+Cargo.lock
 
 # IDE files
 .vscode/
@@ -34,5 +26,17 @@ Thumbs.db
 *.log
 
 # Temporary files
-tmp/
-temp/
+*.tmp
+*.temp
+
+# Test files
+tests/
+test_*.sh
+
+# Build files
+build/
+dist/
+
+# Docker files (except the main Dockerfile)
+docker-compose*.yml
+.dockerignore
