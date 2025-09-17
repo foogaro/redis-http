@@ -1,0 +1,123 @@
+name: Create Release with Library
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  create-release:
+    name: Build and Release Library
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-gnu
+        
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential pkg-config libssl-dev
+        
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: '.'
+        
+    - name: Build library
+      run: cargo build --release
+      
+    - name: Run tests
+      run: cargo test --lib
+      
+    - name: Create release notes
+      run: |
+        cat > release_notes.md << EOF
+        # Redis HTTP Module ${{ steps.version.outputs.VERSION }}
+        
+        ## 📦 Library
+        - **File**: \`libredis_http.so\`
+        - **Architecture**: x86_64-unknown-linux-gnu
+        - **Size**: $(ls -lh target/release/libredis_http.so | awk '{print $5}')
+        
+        ## 🚀 Installation
+        
+        ### 1. Download the Library
+        Download \`libredis_http.so\` from the assets below.
+        
+        ### 2. Install on Ubuntu Server
+        \`\`\`bash
+        # Copy to your server
+        scp libredis_http.so user@your-server:/path/to/redis/modules/
+        
+        # Add to redis.conf
+        echo "loadmodule /path/to/libredis_http.so" >> /etc/redis/redis.conf
+        
+        # Restart Redis
+        sudo systemctl restart redis
+        \`\`\`
+        
+        ### 3. Test the Installation
+        \`\`\`bash
+        # Test HTTP server
+        curl -u ":" http://localhost:4887/GET/test
+        
+        # Set some data
+        redis-cli SET name "John Doe"
+        
+        # Test HTTP endpoint
+        curl -u ":" http://localhost:4887/GET/name
+        \`\`\`
+        
+        ## 📋 Features
+        - HTTP API for Redis operations (GET, POST, PUT, DELETE)
+        - Hash operations (HGET, HGETALL, HSET)
+        - Multiple response formats (JSON, XML, Plain Text)
+        - Basic HTTP authentication
+        - Auto-starting HTTP server on port 4887
+        
+        ## 🔧 Requirements
+        - Redis 6.0 or higher
+        - Ubuntu 18.04+ (x86_64)
+        - OpenSSL library
+        
+        ## 📚 Documentation
+        See the [UBUNTU_BUILD_GUIDE.md](https://github.com/${{ github.repository }}/blob/main/UBUNTU_BUILD_GUIDE.md) for detailed instructions.
+        EOF
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: Redis HTTP Module ${{ steps.version.outputs.VERSION }}
+        body_path: release_notes.md
+        files: target/release/libredis_http.so
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload to release
+      run: |
+        echo "Release created successfully!"
+        echo "Download link: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.VERSION }}"

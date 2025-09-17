@@ -1,0 +1,157 @@
+name: Build Redis HTTP Module
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    name: Build libredis_http.so
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-unknown-linux-gnu
+        override: true
+        
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential pkg-config libssl-dev
+        
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+          
+    - name: Build library
+      run: cargo build --release
+      
+    - name: Run tests
+      run: cargo test --lib
+      
+    - name: Verify library
+      run: |
+        echo "Library information:"
+        file target/release/libredis_http.so
+        echo "Library size:"
+        ls -lh target/release/libredis_http.so
+        echo "Library dependencies:"
+        ldd target/release/libredis_http.so
+        
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: libredis_http.so
+        path: target/release/libredis_http.so
+        retention-days: 30
+        
+    - name: Create release asset (on release)
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.upload_url }}
+        asset_path: target/release/libredis_http.so
+        asset_name: libredis_http.so
+        asset_content_type: application/octet-stream
+
+  build-matrix:
+    name: Build for multiple targets
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        override: true
+        
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential pkg-config libssl-dev
+        # Install cross-compilation tools for aarch64
+        if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+          sudo apt install -y gcc-aarch64-linux-gnu
+        fi
+        
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.target }}-
+          ${{ runner.os }}-cargo-
+          
+    - name: Build library for ${{ matrix.target }}
+      run: cargo build --release --target ${{ matrix.target }}
+      
+    - name: Upload artifact for ${{ matrix.target }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: libredis_http-${{ matrix.target }}.so
+        path: target/${{ matrix.target }}/release/libredis_http.so
+        retention-days: 30
+
+  docker-build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        tags: redis-http-module:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Save Docker image
+      run: |
+        docker save redis-http-module:latest | gzip > redis-http-module.tar.gz
+        
+    - name: Upload Docker image
+      uses: actions/upload-artifact@v3
+      with:
+        name: redis-http-module-docker
+        path: redis-http-module.tar.gz
+        retention-days: 30
