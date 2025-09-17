@@ -52,7 +52,7 @@ jobs:
         nm -D target/release/libredis_http.so | grep -E "(RedisModule|http)" | head -10
         
     - name: Upload library artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: libredis_http.so
         path: target/release/libredis_http.so
