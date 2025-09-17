@@ -57,52 +57,79 @@ jobs:
         
         ## 📦 Library
         - **File**: \`libredis_http.so\`
-        - **Architecture**: x86_64-unknown-linux-gnu
+        - **Architecture**: Ubuntu x86_64
         - **Size**: $(ls -lh target/release/libredis_http.so | awk '{print $5}')
+        - **Compatibility**: Ubuntu 18.04+ (x86_64)
         
-        ## 🚀 Installation
+        ## 🚀 Quick Installation
         
-        ### 1. Download the Library
-        Download \`libredis_http.so\` from the assets below.
-        
-        ### 2. Install on Ubuntu Server
         \`\`\`bash
-        # Copy to your server
-        scp libredis_http.so user@your-server:/path/to/redis/modules/
+        # Download the library
+        wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/libredis_http.so
+        
+        # Copy to Redis modules directory
+        sudo cp libredis_http.so /usr/lib/redis/modules/
         
         # Add to redis.conf
-        echo "loadmodule /path/to/libredis_http.so" >> /etc/redis/redis.conf
+        echo "loadmodule /usr/lib/redis/modules/libredis_http.so" | sudo tee -a /etc/redis/redis.conf
         
         # Restart Redis
         sudo systemctl restart redis
-        \`\`\`
         
-        ### 3. Test the Installation
-        \`\`\`bash
-        # Test HTTP server
+        # Test the installation
         curl -u ":" http://localhost:4887/GET/test
-        
-        # Set some data
-        redis-cli SET name "John Doe"
-        
-        # Test HTTP endpoint
-        curl -u ":" http://localhost:4887/GET/name
         \`\`\`
         
         ## 📋 Features
-        - HTTP API for Redis operations (GET, POST, PUT, DELETE)
-        - Hash operations (HGET, HGETALL, HSET)
-        - Multiple response formats (JSON, XML, Plain Text)
-        - Basic HTTP authentication
-        - Auto-starting HTTP server on port 4887
+        - **HTTP API**: GET, POST, PUT, DELETE operations via HTTP
+        - **Hash Operations**: HGET, HGETALL, HSET via HTTP endpoints
+        - **Multiple Formats**: JSON, XML, Plain Text responses
+        - **Authentication**: Basic HTTP authentication with Redis credentials
+        - **Auto-start**: HTTP server automatically starts on port 4887
         
         ## 🔧 Requirements
-        - Redis 6.0 or higher
-        - Ubuntu 18.04+ (x86_64)
-        - OpenSSL library
+        - **Redis**: 6.0 or higher
+        - **OS**: Ubuntu 18.04+ (x86_64 only)
+        - **Dependencies**: OpenSSL library
         
-        ## 📚 Documentation
-        See the [UBUNTU_BUILD_GUIDE.md](https://github.com/${{ github.repository }}/blob/main/UBUNTU_BUILD_GUIDE.md) for detailed instructions.
+        ## 📚 Usage Examples
+        
+        ### Set and Get Data
+        \`\`\`bash
+        # Set data via Redis CLI
+        redis-cli SET user:123 '{"name":"John","email":"john@example.com"}'
+        
+        # Get data via HTTP
+        curl -u ":" http://localhost:4887/GET/user:123
+        \`\`\`
+        
+        ### Hash Operations
+        \`\`\`bash
+        # Set hash data
+        redis-cli HSET profile:123 name "John Doe" email "john@example.com"
+        
+        # Get hash field
+        curl -u ":" http://localhost:4887/MGET/profile:123/name
+        
+        # Get all hash fields
+        curl -u ":" http://localhost:4887/MGETALL/profile:123
+        \`\`\`
+        
+        ### Different Response Formats
+        \`\`\`bash
+        # JSON (default)
+        curl -u ":" http://localhost:4887/GET/user:123
+        
+        # XML
+        curl -H "Accept: application/xml" -u ":" http://localhost:4887/GET/user:123
+        
+        # Plain Text
+        curl -H "Accept: text/plain" -u ":" http://localhost:4887/GET/user:123
+        \`\`\`
+        
+        ## 🔗 Links
+        - [Full Documentation](https://github.com/${{ github.repository }}/blob/main/README.md)
+        - [Testing Guide](https://github.com/${{ github.repository }}/blob/main/TESTING.md)
         EOF
         
     - name: Create Release

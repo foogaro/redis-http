@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build libredis_http.so
+    name: Build libredis_http.so for Ubuntu x86_64
     runs-on: ubuntu-latest
     
     steps:
@@ -41,19 +41,27 @@ jobs:
       
     - name: Verify library
       run: |
-        echo "Library information:"
+        echo "=== Library Information ==="
         file target/release/libredis_http.so
-        echo "Library size:"
+        echo ""
+        echo "=== Library Size ==="
         ls -lh target/release/libredis_http.so
-        echo "Library dependencies:"
+        echo ""
+        echo "=== Library Dependencies ==="
         ldd target/release/libredis_http.so
+        echo ""
+        echo "=== Library Architecture ==="
+        readelf -h target/release/libredis_http.so | grep Machine
+        echo ""
+        echo "=== Library Symbols ==="
+        nm -D target/release/libredis_http.so | grep -E "(RedisModule|http)" | head -10
         
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: libredis_http.so
+        name: libredis_http-x86_64.so
         path: target/release/libredis_http.so
-        retention-days: 30
+        retention-days: 90
         
     - name: Create release asset (on release)
       if: github.event_name == 'release'
@@ -64,77 +72,29 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-matrix:
-    name: Build for multiple targets
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
         
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-        
-    - name: Install dependencies
+    - name: Build summary
       run: |
-        sudo apt update
-        sudo apt install -y build-essential pkg-config libssl-dev
-        # Install cross-compilation tools for aarch64
-        if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-          sudo apt install -y gcc-aarch64-linux-gnu
-        fi
-        
-    - name: Cache cargo dependencies
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: '.'
-        target: ${{ matrix.target }}
-          
-    - name: Build library for ${{ matrix.target }}
-      run: cargo build --release --target ${{ matrix.target }}
-      
-    - name: Upload artifact for ${{ matrix.target }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: libredis_http-${{ matrix.target }}.so
-        path: target/${{ matrix.target }}/release/libredis_http.so
-        retention-days: 30
-
-  docker-build:
-    name: Build Docker image
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Build Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: false
-        tags: redis-http-module:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        
-    - name: Save Docker image
-      run: |
-        docker save redis-http-module:latest | gzip > redis-http-module.tar.gz
-        
-    - name: Upload Docker image
-      uses: actions/upload-artifact@v4
-      with:
-        name: redis-http-module-docker
-        path: redis-http-module.tar.gz
-        retention-days: 30
+        echo "## 🚀 Build Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Architecture:** x86_64-unknown-linux-gnu" >> $GITHUB_STEP_SUMMARY
+        echo "**Library:** \`libredis_http.so\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Size:** $(ls -lh target/release/libredis_http.so | awk '{print $5}')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📥 Download" >> $GITHUB_STEP_SUMMARY
+        echo "Go to the **Actions** tab → **Build Redis HTTP Module** → **libredis_http-x86_64.so** artifact" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🐧 Ubuntu Installation" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "# Download the library" >> $GITHUB_STEP_SUMMARY
+        echo "wget https://github.com/${{ github.repository }}/releases/download/latest/libredis_http.so" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "# Copy to Redis modules directory" >> $GITHUB_STEP_SUMMARY
+        echo "sudo cp libredis_http.so /usr/lib/redis/modules/" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "# Add to redis.conf" >> $GITHUB_STEP_SUMMARY
+        echo "echo 'loadmodule /usr/lib/redis/modules/libredis_http.so' | sudo tee -a /etc/redis/redis.conf" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "# Restart Redis" >> $GITHUB_STEP_SUMMARY
+        echo "sudo systemctl restart redis" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

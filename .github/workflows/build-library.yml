@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-library:
-    name: Build libredis_http.so for Ubuntu
+    name: Build libredis_http.so for Ubuntu x86_64
     runs-on: ubuntu-latest
     
     steps:
@@ -54,7 +54,7 @@ jobs:
     - name: Upload library artifact
       uses: actions/upload-artifact@v4
       with:
-        name: libredis_http.so
+        name: libredis_http-x86_64.so
         path: target/release/libredis_http.so
         retention-days: 90
         
@@ -67,7 +67,7 @@ jobs:
         echo "**Architecture:** x86_64-unknown-linux-gnu" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 📥 Download" >> $GITHUB_STEP_SUMMARY
-        echo "Go to the **Actions** tab → **Build Redis HTTP Library** → **libredis_http.so** artifact" >> $GITHUB_STEP_SUMMARY
+        echo "Go to the **Actions** tab → **Build Redis HTTP Library** → **libredis_http-x86_64.so** artifact" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🚀 Usage Instructions" >> $GITHUB_STEP_SUMMARY
         echo "1. Download the \`libredis_http.so\` file" >> $GITHUB_STEP_SUMMARY
